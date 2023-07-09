@@ -34,7 +34,7 @@ trinpipe [OPTIONS]
 ```
 
 ## Comments
-- Please read https://github.com/AuReMe/emapper2gbk for compatibility of GFF, Protein and eggnog files. This script runs with `-gt mRNA` by default, chage this with `-gt | --gff-type`.
+- Please read https://github.com/AuReMe/emapper2gbk for compatibility of GFF, Protein and eggnog files. This script runs with `-gt mRNA` by default, change this with `-gt | --gff-type`.
 - The `-n | --name`, `-g | --genome` and `-f | --gtff` are mandatory.
 - Excluding `-r | --run` skips functional annotation entirely.
 - The `-p | --prot` option uses the designated file instead of the one produced by Trinotate. To use the proteome file from Trinotate, just exclude `-p | --prot`.
