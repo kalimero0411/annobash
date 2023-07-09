@@ -1,0 +1,275 @@
+#!/usr/bin/env bash
+
+# Default parameters
+threads=$(command -v nproc --all &> /dev/null && nproc || echo 1)
+gfftype="mRNA"
+
+# Cleanup temp files
+rand=$(echo $RANDOM | md5sum | head -c 10)
+mkdir /tmp/trinpipe.$rand
+tmpdir=/tmp/trinpipe.$rand
+cleanup(){
+ rm --force --recursive $tmpdir
+}
+trap cleanup EXIT
+
+function print_usage(){
+ printf "Perform functional annotation of a genome, given a FASTA file and a GFF3/GTF file
+
+trinpipe [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf] [-o outdir]
+	-n | --name # Name of the run
+	-g | --genome # Genome FASTA file
+	-f | --gtff # Structural annotation file in gtf/gff3 format
+	-o | --outdir # Output directory (Default = Name_trinpipe)
+        -e | --egg # Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only OR '--egg 0' to get the file from trinpipe)
+        -p | --prot # Proteome file (for egg2gbk)
+        -s | --species # Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)
+	-r | --run # Analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')
+	-gt | --gff-type # Type of GFF CDS retrieval passed to emapper2gbk (see README)
+	-k | --keep # Keep all temp files in outdir
+	-t | --threads #	Number of CPU threads to use (Default = Detected processors or 1)
+	-h | --help # Print help
+	
+	Example: trinpipe --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --egg 0 --run swissprot_blastp,swissprot_blastx,EggnogMapper --outdir At_trinotate
+	
+"
+}
+
+while [ "$#" -gt 0 ]
+do
+arg="$1"
+ case $arg in
+  -n | --name)
+  Name="$2" # Run name
+  shift 2
+  ;;
+  -g | --genome)
+  genome=$(readlink -f "$2") # genome FASTA file path
+  shift 2
+  ;;
+  -f | --gtff)
+  gtff=$(readlink -f "$2") # gtf/gff3 file path
+  shift 2
+  ;;
+  -o | --outdir)
+  outdir=$(readlink -f "$2") # output directory
+  shift 2
+  ;;
+  -e | --egg)
+  egg="$2" # Eggnog annotation file
+  shift 2
+  ;;
+  -p | --prot)
+  prot="$2" # Protein file
+  shift 2
+  ;;
+  -s | --species)
+  species="$2" # Species
+  shift 2
+  ;;
+  -r | --run)
+  OFS=$IFS
+  IFS=","
+  run=($(echo "$2"))
+  IFS=$OFS
+  shift 2
+  ;;
+  -gt | --gff-type)
+  gfftype="$2"
+  shift 2
+  ;;
+  -k | --keep)
+  shift 1
+  ;;  
+  -t | --threads)
+  threads=$2 # Threads
+  shift 2
+  ;;
+  -h | --help)
+  print_usage
+  exit 1
+  ;;
+  *)
+  if [ -f "$1" ]
+  then
+   break
+  else
+  echo "Unknown option: "$1
+  print_usage
+  exit 1
+  fi
+  ;;
+  esac
+ done
+ 
+ # Check dependencies
+  if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
+  then
+   echo "emapper2gbk not installed" >&2
+   echo "https://github.com/AuReMe/emapper2gbk" >&2
+   deps+="emapper2gbk"
+  fi
+  
+  if ! command -v gt &> /dev/null
+  then
+   echo "gffread not installed" >&2
+   echo "sudo apt install genometools" >&2
+   deps+="genometools"
+  fi
+  
+  if ! command -v Trinotate &> /dev/null
+  then
+   echo "Trinotate not installed" >&2
+   echo "https://github.com/Trinotate/Trinotate" >&2
+   deps+="Trinotate"
+  fi
+  
+  if [ ! -z ${deps+x} ]
+  then
+   exit 1
+  fi
+  
+  if [ -z ${genome+x} ]
+  then
+   echo "Must designate genome file with -g | --genome" >&2
+   exit 1
+  fi
+  
+  if [ -z ${gtff+x} ]
+  then
+   echo "Must designate structural annotation file with -f | --gtff" >&2
+   exit 1
+  fi
+   
+  if [ -z ${name+x} ]
+  then
+   echo "Must designate name with -n | --name" >&2
+   exit 1
+  fi
+  
+if [[ ${run[@]} =~ "0" ]]
+then
+ run=(swissprot_blastp swissprot_blastx pfam signalp6 tmhmmv2 infernal EggnogMapper)
+fi
+
+if [ ! -z ${TRINOTATE_DATA_DIR+x} ]
+then
+ rm -f $TRINOTATE_DATA_DIR"/__chckpts/cp_trinotate_boilerplate_sqlite_to_"$Name".sqlite.ok"
+ gobo=$TRINOTATE_DATA_DIR"/go-basic.obo"
+else
+ wget -O $tmpdir http://purl.obolibrary.org/obo/go/go-basic.obo
+ gobo=$tmpdir"/go-basic.obo"
+fi
+
+if [ -z ${outdir+x} ]
+then
+ outdir=$(pwd)"/"$Name"_trinpipe"
+fi
+
+if [ ! -d $outdir ]
+then
+ mkdir --parents $outdir
+fi
+
+if [ ! -z ${egg+x} ] && [ -z ${species+x} ]
+then
+ echo "Please specify a species with '-s | --species'" >2&
+ exit 1
+fi
+
+if [ ! -z ${egg+x} ] && [[ $egg == "0" ]] && [ ! -z ${run+x} ] && [[ ! ${run[@]} =~ "EggnogMapper" ]]
+then
+ run+="EggnogMapper"
+fi
+
+if [ ! -z ${run+x} ]
+then
+
+cd $tmpdir
+
+Trinotate --create \
+--db $tmpdir"/"$Name.sqlite \
+--use_diamond
+
+Trinotate_GTF_or_GFF3_annot_prep.pl \
+--annot $gtff \
+--genome_fa $genome \
+--out_prefix $tmpdir"/"$Name
+
+if [ -z ${prot+x} ]
+then
+ prot=$tmpdir"/"$Name.proteins.fa
+fi
+
+Trinotate --init \
+--db $tmpdir"/"$Name.sqlite \
+--gene_trans_map $tmpdir"/"$Name.gene-to-trans-map \
+--transcript_fasta $tmpdir"/"$Name.transcripts.cdna.fa \
+--transdecoder_pep $tmpdir"/"$Name.proteins.fa
+
+Trinotate \
+--db $tmpdir"/"$Name.sqlite \
+--CPU $threads \
+--transcript_fasta $tmpdir"/"$Name.transcripts.cdna.fa \
+--transdecoder_pep $tmpdir"/"$Name.proteins.fa \
+--run "${run[*]}" \
+--use_diamond
+
+if [[ $egg == "0" ]]
+then
+ egg=$tmpdir"/eggnog_mapper.emapper.annotations"
+fi
+
+if [[ ${run[@]} =~ "swissprot_blastp" ]] || [[ ${run[@]} =~ "swissprot_blastx" ]]
+then
+ Trinotate --report \
+ --db $tmpdir"/"$Name.sqlite \
+ > $tmpdir"/"$Name"_report.tsv"
+
+ extract_GO_assignments_from_Trinotate_xls.pl \
+ --Trinotate_xls $tmpdir"/"$Name"_report.tsv" \
+ -G \
+ --include_ancestral_terms \
+ > $tmpdir"/"$Name"_GO_mapping"
+fi
+fi
+
+if [ ! -z ${egg+x} ]
+then
+ if [[ ${gtff##*.} == "gtf" ]]
+ then
+  tmp_gff=$(mktemp --tmpdir=$tmpdir trinpipe.XXXXXXXXXX)
+  gt gtf_to_gff3 $tmp_gff
+  gtff=$tmp_gff
+ fi
+ 
+ tmp_prot=$(mktemp --tmpdir=$tmpdir trinpipe.XXXXXXXXXX)
+ sed -E 's/(>[^.])[.]pep.*/\1/g' $prot > $tmp_prot
+ prot=$tmp_prot
+ 
+ tmp_egg=$(mktemp --tmpdir=$tmpdir trinpipe.XXXXXXXXXX)
+ sed -E 's/[.]pep\t/\t/g' $egg > $tmp_egg
+ egg=$tmp_egg
+ 
+ emapper2gbk genomes \
+ --fastanucleic $genome \
+ --fastaprot $prot \
+ --gff $gtff \
+ --name "$species" \
+ --out $outdir"/"$Name.gbk \
+ --annotation $egg \
+ --cpu $threads \
+ --gobasic $gobo \
+ --gff-type $gfftype
+fi
+
+if [ ! -z $keep ]
+then
+ mv $tmpdir $outdir
+elif [[ ! -z ${run+x} ]]
+then
+ [ -f $tmpdir"/"$Name"_GO_mapping" ] && mv $tmpdir"/"$Name"_GO_mapping"
+ [ -f $tmpdir"/"$Name"_report.tsv" ] && mv $tmpdir"/"$Name"_report.tsv"
+ [ -f $tmpdir"/"$Name".proteins.fa" ] && mv $tmpdir"/"$Name".proteins.fa"
+ [ -f $tmpdir"/eggnog_mapper.emapper.annotations" ] && mv $tmpdir"/eggnog_mapper.emapper.annotations" $outdir
+fi
