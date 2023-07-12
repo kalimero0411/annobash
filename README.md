@@ -6,7 +6,7 @@ trinpipe [OPTIONS]
 ```
 
 ## Options
-| Short     | Long &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;     | Description     |
+| Short     | Long     | Description     |
 | ------------- | ------------- | -------- |
 | `-n`          | `--name`         | Name of the run  |
 | `-g`         | `--genome`         | Genome FASTA file  |
@@ -16,9 +16,9 @@ trinpipe [OPTIONS]
 | `-p`          | `--prot`         | Proteome file (for emapper2gbk)  |
 | `-s`          | `--species`         | Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)  |
 | `-r`          | `--run`         | Analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')  |
-| `-gt`          | `--gff-type`         | Type of GFF CDS retrieval passed to emapper2gbk (see README)  |
+| `-gt`          | `--gff-type` &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;          | Type of GFF CDS retrieval passed to emapper2gbk (see README)  |
 | `-k`          | `--keep`         | Keep all temp files in outdir  |
-| `-t`           | `--threads #`        | Number of CPU threads to use (Default = Detected processors or 1)  |
+| `-t`           | `--threads #` &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;       | Number of CPU threads to use (Default = Detected processors or 1)  |
 | `-h`           | `--help`       | Display help  |
 
 
