@@ -8,18 +8,18 @@ trinpipe [OPTIONS]
 ## Options
 | Short     | Long      | Description     |
 | ------------- | ------------- | -------- |
-| -n          | --name         | Name of the run  |
-| -g         | --genome         | Genome FASTA file  |
-| -f          | --gtff         | Structural annotation file in gtf/gff3 format  |
-| -o          | --outdir         | Output directory (Default = Name_trinpipe)  |
-| -e          | --egg         | Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only OR '--egg 0' to get the file from trinpipe)  |
-| -p          | --prot         | Proteome file (for egg2gbk)  |
-| -s          | --species         | Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)  |
-| -r          | --run         | Analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')  |
-| -gt          | --gff-type         | Type of GFF CDS retrieval passed to emapper2gbk (see README)  |
-| -k          | --keep         | Keep all temp files in outdir  |
-| -t           | --threads #        | Number of CPU threads to use (Default = Detected processors or 1)  |
-| -h           | --help       | Display help  |
+| -n          | `<br>--name<br>`         | Name of the run  |
+| -g         | `<br>--genome<br>`         | Genome FASTA file  |
+| -f          | `<br>--gtff<br>`         | Structural annotation file in gtf/gff3 format  |
+| -o          | `<br>--outdir<br>`         | Output directory (Default = Name_trinpipe)  |
+| -e          | `<br>--egg<br>`         | Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only OR '--egg 0' to get the file from trinpipe)  |
+| -p          | `<br>--prot<br>`         | Proteome file (for egg2gbk)  |
+| -s          | `<br>--species<br>`         | Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)  |
+| -r          | `<br>--run<br>`         | Analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')  |
+| -gt          | `<br>--gff-type<br>`         | Type of GFF CDS retrieval passed to emapper2gbk (see README)  |
+| -k          | `<br>--keep<br>`         | Keep all temp files in outdir  |
+| -t           | `<br>--threads #<br>`        | Number of CPU threads to use (Default = Detected processors or 1)  |
+| -h           | `<br>--help<br>`       | Display help  |
 
 
 ## Examples
