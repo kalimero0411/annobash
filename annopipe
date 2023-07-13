@@ -286,10 +286,10 @@ fi
 
 if [ ! -z ${patho+x} ]
 then
- mkdir $outdir"/"$Name
- mv --force $outdir"/"$Name".gbk" $outdir"/"$Name"/"
+ [ ! -d $outdir"/pgdb/"$Name] && mkdir --parents $outdir"/pgdb/"$Name
+ [ ! -f $outdir"/pgdb/"$Name"/"$Name".gbk" ] && ln -s $outdir"/"$Name".gbk" $outdir"/pgdb/"$Name"/"
  mpwt \
- -f=$outdir \
+ -f=$outdir"/pgdb" \
  -o=$tmpdir \
  --hf \
  --tp \
