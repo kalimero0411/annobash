@@ -17,6 +17,7 @@ annopipe [OPTIONS]
 | -s          | --species         | Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)  |
 | -r          | --run         | Analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')  |
 | -gt          | --gff-type         | Type of GFF CDS retrieval passed to emapper2gbk (see README)  |
+| -c          | --patho         | Create Pathway tools database using Pathologic  |
 | -k          | --keep         | Keep all temp files in outdir  |
 | -t           | --threads #        | Number of CPU threads to use (Default = Detected processors or 1)  |
 | -h           | --help       | Display help  |

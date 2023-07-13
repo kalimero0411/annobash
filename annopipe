@@ -26,6 +26,7 @@ annopipe [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf]
         -s | --species # Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)
 	-r | --run # Analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')
 	-gt | --gff-type # Type of GFF CDS retrieval passed to emapper2gbk (see README)
+	-c | --patho # Create Pathway tools database using Pathologic
 	-k | --keep # Keep all temp files in outdir
 	-t | --threads #	Number of CPU threads to use (Default = Detected processors or 1)
 	-h | --help # Print help
@@ -77,6 +78,10 @@ arg="$1"
   -gt | --gff-type)
   gfftype="$2"
   shift 2
+  ;;
+  -c | --patho)
+  patho=1
+  shift 1
   ;;
   -k | --keep)
   shift 1
@@ -141,7 +146,7 @@ arg="$1"
    exit 1
   fi
    
-  if [ -z ${name+x} ]
+  if [ -z ${Name+x} ]
   then
    echo "Must designate name with -n | --name" >&2
    exit 1
@@ -272,4 +277,16 @@ then
  [ -f $tmpdir"/"$Name"_report.tsv" ] && mv $tmpdir"/"$Name"_report.tsv"
  [ -f $tmpdir"/"$Name".proteins.fa" ] && mv $tmpdir"/"$Name".proteins.fa"
  [ -f $tmpdir"/eggnog_mapper.emapper.annotations" ] && mv $tmpdir"/eggnog_mapper.emapper.annotations" $outdir
+fi
+
+if [ ! -z ${patho+x} ]
+then
+ mkdir $outdir"/"$Name
+ mv -v $outdir"/"$Name".gbk" $outdir"/"$Name"/"
+ mpwt \
+ -f=$outdir"/"$Name \
+ -o=$outdir \
+ --patho \
+ --clean \
+ -v
 fi
