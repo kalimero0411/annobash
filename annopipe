@@ -134,6 +134,8 @@ arg="$1"
    exit 1
   fi
   
+  if [ ! -z ${run+x} ] || [ ! -z ${egg+x} ]
+  then
   if [ -z ${genome+x} ]
   then
    echo "Must designate genome file with -g | --genome" >&2
@@ -144,6 +146,7 @@ arg="$1"
   then
    echo "Must designate structural annotation file with -f | --gtff" >&2
    exit 1
+  fi
   fi
    
   if [ -z ${Name+x} ]
