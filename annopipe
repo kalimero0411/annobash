@@ -201,6 +201,8 @@ Trinotate_GTF_or_GFF3_annot_prep.pl \
 --genome_fa $genome \
 --out_prefix $tmpdir"/"$Name
 
+[ -f $tmpdir"/"$Name".proteins.fa" ] && cp --force $tmpdir"/"$Name".proteins.fa" $outdir
+
 if [ -z ${prot+x} ]
 then
  prot=$tmpdir"/"$Name.proteins.fa
@@ -220,6 +222,8 @@ Trinotate \
 --run "${run[*]}" \
 --use_diamond
 
+[ -f $tmpdir"/eggnog_mapper.emapper.annotations" ] && cp --force $tmpdir"/eggnog_mapper.emapper.annotations" $outdir
+
 if [[ $egg == "0" ]]
 then
  egg=$tmpdir"/eggnog_mapper.emapper.annotations"
@@ -236,6 +240,10 @@ then
  -G \
  --include_ancestral_terms \
  > $tmpdir"/"$Name"_GO_mapping"
+ 
+ [ -f $tmpdir"/"$Name"_GO_mapping" ] && cp --force $tmpdir"/"$Name"_GO_mapping" $outdir
+ [ -f $tmpdir"/"$Name"_report.tsv" ] && cp --force $tmpdir"/"$Name"_report.tsv" $outdir
+ 
 fi
 fi
 
@@ -249,7 +257,7 @@ then
  fi
  
  tmp_prot=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
- sed -E 's/(>[^.])[.]pep.*/\1/g' $prot > $tmp_prot
+ sed -E 's/(>[^.]+)[.]pep.*/\1/g' $prot > $tmp_prot
  prot=$tmp_prot
  
  tmp_egg=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
@@ -271,21 +279,18 @@ fi
 if [ ! -z $keep ]
 then
  mv $tmpdir $outdir
-elif [[ ! -z ${run+x} ]]
-then
- [ -f $tmpdir"/"$Name"_GO_mapping" ] && mv $tmpdir"/"$Name"_GO_mapping"
- [ -f $tmpdir"/"$Name"_report.tsv" ] && mv $tmpdir"/"$Name"_report.tsv"
- [ -f $tmpdir"/"$Name".proteins.fa" ] && mv $tmpdir"/"$Name".proteins.fa"
- [ -f $tmpdir"/eggnog_mapper.emapper.annotations" ] && mv $tmpdir"/eggnog_mapper.emapper.annotations" $outdir
 fi
 
 if [ ! -z ${patho+x} ]
 then
  mkdir $outdir"/"$Name
- mv -v $outdir"/"$Name".gbk" $outdir"/"$Name"/"
+ mv --force $outdir"/"$Name".gbk" $outdir"/"$Name"/"
  mpwt \
- -f=$outdir"/"$Name \
- -o=$outdir \
+ -f=$outdir \
+ -o=$tmpdir \
+ --hf \
+ --tp \
+ --cp \
  --patho \
  --clean \
  -v
