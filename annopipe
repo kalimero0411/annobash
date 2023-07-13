@@ -286,7 +286,7 @@ fi
 
 if [ ! -z ${patho+x} ]
 then
- [ ! -d $outdir"/pgdb/"$Name] && mkdir --parents $outdir"/pgdb/"$Name
+ [ ! -d $outdir"/pgdb/"$Name ] && mkdir --parents $outdir"/pgdb/"$Name
  [ ! -f $outdir"/pgdb/"$Name"/"$Name".gbk" ] && ln -s $outdir"/"$Name".gbk" $outdir"/pgdb/"$Name"/"
  mpwt \
  -f=$outdir"/pgdb" \
@@ -296,5 +296,6 @@ then
  --cp \
  --patho \
  --clean \
+ --cpu $threads \
  -v
 fi
