@@ -117,7 +117,7 @@ arg="$1"
   
   if ! command -v gt &> /dev/null
   then
-   echo "gffread not installed" >&2
+   echo "genometools not installed" >&2
    echo "sudo apt install genometools" >&2
    deps+="genometools"
   fi
@@ -127,6 +127,13 @@ arg="$1"
    echo "Trinotate not installed" >&2
    echo "https://github.com/Trinotate/Trinotate" >&2
    deps+="Trinotate"
+  fi
+
+  if ! command -v mpwt &> /dev/null
+  then
+   echo "mpwt not installed" >&2
+   echo "https://github.com/AuReMe/mpwt" >&2
+   deps+="mpwt"
   fi
   
   if [ ! -z ${deps+x} ]
@@ -255,7 +262,17 @@ then
  if [[ ${gtff##*.} == "gtf" ]]
  then
   tmp_gff=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
-  gt gtf_to_gff3 $tmp_gff
+  tmp_comments=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
+  gt gtf_to_gff3 $gtff |
+  grep -vP "^###$" > $tmp_comments
+  cat <(grep "#" $tmp_comments) <(grep -v "#" $tmp_comments | awk -F $'\t' '{OFS="\t"};
+  {gene=gensub(/.*gene_id=([^;]+).*/,"\\1","G",$9);
+  trans=gensub(/.*transcript_id=([^;]+).*/,"\\1","G",$9)};
+  $3 ~ /gene/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="gene}
+  $3 ~ /mRNA/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="gene}
+  $3 ~ /CDS|exon/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="trans}
+  $3 !~ /gene|mRNA|transcript|CDS|exon/{print $0}') \
+  > $tmp_gff
   gtff=$tmp_gff
  fi
  
@@ -279,17 +296,12 @@ then
  --gff-type $gfftype
 fi
 
-if [ ! -z $keep ]
-then
- mv $tmpdir $outdir
-fi
-
 if [ ! -z ${patho+x} ]
 then
- [ ! -d $outdir"/pgdb/"$Name ] && mkdir --parents $outdir"/pgdb/"$Name
- [ ! -f $outdir"/pgdb/"$Name"/"$Name".gbk" ] && ln -s $outdir"/"$Name".gbk" $outdir"/pgdb/"$Name"/"
+ mkdir --parents $tmpdir"/pgdb/"$Name
+ ln -s $outdir"/"$Name".gbk" $tmpdir"/pgdb/"$Name"/"
  mpwt \
- -f=$outdir"/pgdb" \
+ -f=$tmpdir"/pgdb" \
  -o=$tmpdir \
  --hf \
  --tp \
@@ -298,4 +310,9 @@ then
  --clean \
  --cpu $threads \
  -v
+fi
+
+if [ ! -z $keep ]
+then
+ mv --force $tmpdir $outdir
 fi

@@ -1,5 +1,10 @@
 # annopipe
-A bash script for functional annotation (Trinotate) and preperation for metabolic pathway prediction (Pathwaytools)
+A bash script for functional annotation (Trinotate) and metabolic pathway prediction (Pathwaytools)
+
+The script is a wrapper for:
+Trinotate - https://github.com/Trinotate/Trinotate
+emapper2gbk - https://github.com/AuReMe/emapper2gbk
+mpwt - https://github.com/AuReMe/mpwt
 
 ```
 annopipe [OPTIONS]
