@@ -18,6 +18,9 @@ annopipe [OPTIONS]
 | -f          | --gtff         | Structural annotation file in gtf/gff3 format  |
 | -o          | --outdir         | Output directory (Default = Name_annopipe)  |
 | -e          | --egg         | Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only OR '--egg 0' to get the file from annopipe)  |
+| -b          | --braker         | Run Braker  |
+|           | --rm         | RepeatModeler consensi file (consensi.fa.classified) for Braker  |
+|           | --bam         | Path to BAM files (RNAseq) for Braker  |
 | -p          | --prot         | Proteome file (for egg2gbk)  |
 | -s          | --species         | Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)  |
 | -r          | --run         | Analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')  |
