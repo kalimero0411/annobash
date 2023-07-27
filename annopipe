@@ -22,6 +22,9 @@ annopipe [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf]
 	-f | --gtff # Structural annotation file in gtf/gff3 format
 	-o | --outdir # Output directory (Default = Name_annopipe)
         -e | --egg # Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only OR '--egg 0' to get the file from annopipe)
+        -b | --braker   Run Braker
+        --rm_con   RepeatModeler consensi file (consensi.fa.classified) for Braker2
+        --bam      Path to BAM files (RNAseq) for Braker2
         -p | --prot # Proteome file (for egg2gbk)
         -s | --species # Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)
 	-r | --run # Analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')
@@ -60,8 +63,20 @@ arg="$1"
   egg="$2" # Eggnog annotation file
   shift 2
   ;;
+  -b | --braker)
+  braker=1 # Run Braker
+  shift 1
+  ;;
+  --rm_con)
+  rm_con=$(readlink -f "$2") # RM file
+  shift 2
+  ;;
+  --bam)
+  bam=$(readlink -f "$2") # BAM RNAseq files
+  shift 2
+  ;;
   -p | --prot)
-  prot="$2" # Protein file
+  prot=$(readlink -f "$2") # Protein file
   shift 2
   ;;
   -s | --species)
@@ -108,6 +123,13 @@ arg="$1"
  done
  
  # Check dependencies
+  if ! command -v braker.pl &> /dev/null && [ ! -z ${braker+x} ]
+  then
+   echo "braker not installed" >&2
+   echo "https://github.com/Gaius-Augustus/BRAKER" >&2
+   deps+="braker"
+  fi
+  
   if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
   then
    echo "emapper2gbk not installed" >&2
@@ -195,6 +217,46 @@ fi
 if [ ! -z ${egg+x} ] && [[ $egg == "0" ]] && [ ! -z ${run+x} ] && [[ ! ${run[@]} =~ "EggnogMapper" ]]
 then
  run+="EggnogMapper"
+fi
+
+if [ ! -z ${braker+x} ] && [ -z ${species+x} ]
+then
+pl_script=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
+echo -e '#!/usr/bin/perl -w\nuse strict;\nmy @cols;\nmy $new_nine;\nwhile (<>) {\n        chomp;\n        @cols = split /\\t/, $_;\n        $new_nine=$cols[8];\n        if ($cols[2]eq"gene") {\n                $new_nine="gene_id \\"$cols[8]\\"";\n        } elsif ($cols[2]eq"transcript") {\n                $new_nine="transcript_id \"$cols[8]\"";\n        }\n        print join "\\t", $cols[0],$cols[1],$cols[2],$cols[3],$cols[4],$cols[5],$cols[6],$cols[7],$new_nine;\n        print "\\n";\n}' > $pl_script
+
+braker.pl \
+--species="${species/ /_}" \
+--useexisting \
+--softmasking \
+--genome=$genome \
+--bam=$(find $bam -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
+--workingdir=$tmpdir/braker_out \
+--threads $threads
+
+perl $pl_script < $tmpdir/braker_out/braker.gtf |
+if [ $(head $tmpdir/braker_out/braker.gtf | grep -cP "file_[0-9]") -gt 0 ]
+then
+ sed -E 's/file_[0-9]+_file_[0-9]+_//g'
+else
+ cat
+fi |
+tee $tmpdir/braker_out/braker_fixed.gtf |
+grep -P "\tCDS\t|\texon\t" |
+gt gtf_to_gff3 |
+grep -vP "^###$" > $tmpdir/braker_out/braker.gff3
+cat <(grep "#" $tmpdir/braker_out/braker.gff3) <(grep -v "#" $tmpdir/braker_out/braker.gff3 | awk -F $'\t' '{OFS="\t"};
+{gene=gensub(/.*gene_id=([^;]+).*/,"\\1","G",$9);
+trans=gensub(/.*transcript_id=([^;]+).*/,"\\1","G",$9)};
+$3 ~ /gene/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="gene}
+$3 ~ /mRNA/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="gene}
+$3 ~ /CDS|exon/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="trans}
+$3 !~ /gene|mRNA|transcript|CDS|exon/{print $0}') \
+> $tmpdir/braker_out/braker_fixed.gff3
+
+cp --force $tmpdir/braker_out/braker_fixed.gtf $outdir"/"$Name".gtf"
+cp --force $tmpdir/braker_out/braker_fixed.gff3 $outdir"/"$Name".gff3"
+
+gtff=$outdir"/"$Name".gff3"
 fi
 
 if [ ! -z ${run+x} ]
