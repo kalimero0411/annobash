@@ -5,9 +5,8 @@ threads=$(command -v nproc --all &> /dev/null && nproc || echo 1)
 gfftype="mRNA"
 
 # Cleanup temp files
-rand=$(echo $RANDOM | md5sum | head -c 10)
-mkdir /tmp/annopipe.$rand
-tmpdir=/tmp/annopipe.$rand
+tmpdir=$(mktemp --tmpdir=/tmp --directory annopipe.XXXXXXXXXX)
+chmod --recursive 775 $tmpdir
 cleanup(){
  rm --force --recursive $tmpdir
 }
@@ -263,6 +262,12 @@ if [ ! -z ${run+x} ]
 then
 
 cd $tmpdir
+
+if [[ ${gtff##*.} == "gff" ]]
+then
+ cp --force $gtff $tmpdir"/"$gtff"3"
+ gtff=$tmpdir"/"$gtff"3"
+fi
 
 Trinotate --create \
 --db $tmpdir"/"$Name.sqlite \
