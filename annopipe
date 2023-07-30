@@ -310,17 +310,17 @@ if [[ ${run[@]} =~ "swissprot_blastp" ]] || [[ ${run[@]} =~ "swissprot_blastx" ]
 then
  Trinotate --report \
  --db $tmpdir"/"$Name.sqlite \
- > $tmpdir"/"$Name"_report.tsv"
+ > $outdir"/"$Name"_report.tsv"
 
  extract_GO_assignments_from_Trinotate_xls.pl \
- --Trinotate_xls $tmpdir"/"$Name"_report.tsv" \
+ --Trinotate_xls $outdir"/"$Name"_report.tsv" \
  -G \
  --include_ancestral_terms \
- > $tmpdir"/"$Name"_GO_mapping"
+ > $tmpdir"/"$Name"_GO_output"
  
- [ -f $tmpdir"/"$Name"_GO_mapping" ] && cp --force $tmpdir"/"$Name"_GO_mapping" $outdir
- [ -f $tmpdir"/"$Name"_report.tsv" ] && cp --force $tmpdir"/"$Name"_report.tsv" $outdir
- 
+ grep --word-regexp --invert-match -f <(cut --fields=1 $tmpdir"/"$Name"_GO_output" | sort --unique) <(cut -f1 $Name".gene-to-trans-map") |
+ sort > $outdir"/"$Name"_GO_mapping"
+  
 fi
 fi
 
