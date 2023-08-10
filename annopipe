@@ -278,6 +278,8 @@ Trinotate_GTF_or_GFF3_annot_prep.pl \
 --genome_fa $genome \
 --out_prefix $tmpdir"/"$Name
 
+cp --force $tmpdir"/"$Name".gene-to-trans-map" $outdir
+
 [ -f $tmpdir"/"$Name".proteins.fa" ] && cp --force $tmpdir"/"$Name".proteins.fa" $outdir
 
 if [ -z ${prot+x} ]
@@ -318,9 +320,19 @@ then
  --include_ancestral_terms \
  > $tmpdir"/"$Name"_GO_output"
  
- grep --word-regexp --invert-match -f <(cut --fields=1 $tmpdir"/"$Name"_GO_output" | sort --unique) <(cut -f1 $Name".gene-to-trans-map") |
+ grep --word-regexp --invert-match -f <(cut --fields=1 $tmpdir"/"$Name"_GO_output" | sort --unique) <(cut -f1 $tmpdir"/"$Name".gene-to-trans-map") |
  sort > $outdir"/"$Name"_GO_mapping"
-  
+ 
+ if [ -z ${species+x} ]
+ then
+  species="None"
+ fi
+
+ cat \
+ <(echo "(species="$species")(type=BiNGO)(curator=GO)") \
+ <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' $outdir"/"$Name"_GO_mapping") \
+ > $outdir"/"$Name".BiNGO"
+
 fi
 fi
 
