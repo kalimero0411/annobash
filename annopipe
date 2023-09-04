@@ -183,6 +183,22 @@ arg="$1"
    exit 1
   fi
   
+  gtf2gff(){
+   local tmp_gff=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
+   local input=$1
+   cat $input |
+   grep -P "\tCDS\t|\texon\t" |
+   gt gtf_to_gff3 |
+   grep -vP "^###$" > $tmp_gff
+   cat <(grep "#" $tmp_gff) <(grep -v "#" $tmp_gff | awk -F $'\t' '{OFS="\t"};
+   {gene=gensub(/.*gene_id=([^;]+).*/,"\\1","G",$9);
+   trans=gensub(/.*transcript_id=([^;]+).*/,"\\1","G",$9)};
+   $3 ~ /gene/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="gene}
+   $3 ~ /mRNA/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="gene}
+   $3 ~ /CDS|exon/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="trans}
+   $3 !~ /gene|mRNA|transcript|CDS|exon/{print $0}')
+  }
+  
 if [[ ${run[@]-x} =~ "0" ]]
 then
  run=(swissprot_blastp swissprot_blastx pfam signalp6 tmhmmv2 infernal EggnogMapper)
@@ -259,17 +275,7 @@ else
  cat
 fi |
 tee $tmpdir/braker_out/braker_fixed.gtf |
-grep -P "\tCDS\t|\texon\t" |
-gt gtf_to_gff3 |
-grep -vP "^###$" > $tmpdir/braker_out/braker.gff3
-cat <(grep "#" $tmpdir/braker_out/braker.gff3) <(grep -v "#" $tmpdir/braker_out/braker.gff3 | awk -F $'\t' '{OFS="\t"};
-{gene=gensub(/.*gene_id=([^;]+).*/,"\\1","G",$9);
-trans=gensub(/.*transcript_id=([^;]+).*/,"\\1","G",$9)};
-$3 ~ /gene/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="gene}
-$3 ~ /mRNA/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="gene}
-$3 ~ /CDS|exon/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="trans}
-$3 !~ /gene|mRNA|transcript|CDS|exon/{print $0}') \
-> $tmpdir/braker_out/braker_fixed.gff3
+gtf2gff > $tmpdir/braker_out/braker_fixed.gff3
 
 cp --force $tmpdir/braker_out/braker_fixed.gtf $outdir"/"$Name".gtf"
 cp --force $tmpdir/braker_out/braker_fixed.gff3 $outdir"/"$Name".gff3"
@@ -360,17 +366,7 @@ then
  if [[ ${gtff##*.} == "gtf" ]]
  then
   tmp_gff=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
-  tmp_comments=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
-  gt gtf_to_gff3 $gtff |
-  grep -vP "^###$" > $tmp_comments
-  cat <(grep "#" $tmp_comments) <(grep -v "#" $tmp_comments | awk -F $'\t' '{OFS="\t"};
-  {gene=gensub(/.*gene_id=([^;]+).*/,"\\1","G",$9);
-  trans=gensub(/.*transcript_id=([^;]+).*/,"\\1","G",$9)};
-  $3 ~ /gene/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="gene}
-  $3 ~ /mRNA/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="gene}
-  $3 ~ /CDS|exon/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="trans}
-  $3 !~ /gene|mRNA|transcript|CDS|exon/{print $0}') \
-  > $tmp_gff
+  gtf2gff $gtff > $tmp_gff
   gtff=$tmp_gff
  fi
  
