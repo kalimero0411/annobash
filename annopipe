@@ -22,7 +22,7 @@ annopipe [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf]
 	-o | --outdir # Output directory (Default = Name_annopipe)
         -e | --egg # Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only OR '--egg 0' to get the file from annopipe)
         -b | --braker   Run Braker
-        --rm_con   RepeatModeler consensi file (consensi.fa.classified) for Braker
+        -i | --hints   Hints GFF file for Braker
         --bam      Path to BAM files (RNAseq) for Braker
         -p | --prot # Proteome file (for egg2gbk)
         -s | --species # Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)
@@ -66,10 +66,6 @@ arg="$1"
   braker=1 # Run Braker
   shift 1
   ;;
-  --rm_con)
-  rm_con=$(readlink -f "$2") # RM file
-  shift 2
-  ;;
   --bam)
   bam=$(readlink -f "$2") # BAM RNAseq files
   shift 2
@@ -91,6 +87,10 @@ arg="$1"
   ;;
   -gt | --gff-type)
   gfftype="$2"
+  shift 2
+  ;;
+  -i | --hints)
+  hints="$2"
   shift 2
   ;;
   -c | --patho)
@@ -218,19 +218,38 @@ then
  run+="EggnogMapper"
 fi
 
-if [ ! -z ${braker+x} ] && [ -z ${species+x} ]
+if [ ! -z ${braker+x} ]
 then
+if [ -z ${species+x} ]
+then
+ echo "Please specify a species with '-s | --species'" >2&
+ exit 1
+fi
+
 pl_script=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
 echo -e '#!/usr/bin/perl -w\nuse strict;\nmy @cols;\nmy $new_nine;\nwhile (<>) {\n        chomp;\n        @cols = split /\\t/, $_;\n        $new_nine=$cols[8];\n        if ($cols[2]eq"gene") {\n                $new_nine="gene_id \\"$cols[8]\\"";\n        } elsif ($cols[2]eq"transcript") {\n                $new_nine="transcript_id \"$cols[8]\"";\n        }\n        print join "\\t", $cols[0],$cols[1],$cols[2],$cols[3],$cols[4],$cols[5],$cols[6],$cols[7],$new_nine;\n        print "\\n";\n}' > $pl_script
 
-braker.pl \
---species="${species/ /_}" \
---useexisting \
---softmasking \
---genome=$genome \
---bam=$(find $bam -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
---workingdir=$tmpdir/braker_out \
---threads $threads
+if [ ! -z ${hints+x} ]
+then
+ braker.pl \
+ --species="${species/ /_}" \
+ --useexisting \
+ --softmasking \
+ --hints="$hints"
+ --genome=$genome \
+ --bam=$(find $bam -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
+ --workingdir=$tmpdir/braker_out \
+ --threads $threads
+else
+ braker.pl \
+ --species="${species/ /_}" \
+ --useexisting \
+ --softmasking \
+ --genome=$genome \
+ --bam=$(find $bam -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
+ --workingdir=$tmpdir/braker_out \
+ --threads $threads
+fi
 
 perl $pl_script < $tmpdir/braker_out/braker.gtf |
 if [ $(head $tmpdir/braker_out/braker.gtf | grep -cP "file_[0-9]") -gt 0 ]

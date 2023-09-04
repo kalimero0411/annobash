@@ -19,7 +19,7 @@ annopipe [OPTIONS]
 | -o          | --outdir         | Output directory (Default = Name_annopipe)  |
 | -e          | --egg         | Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only OR '--egg 0' to get the file from annopipe)  |
 | -b          | --braker         | Run Braker  |
-|           | --rm         | RepeatModeler consensi file (consensi.fa.classified) for Braker  |
+| -i          | --hints         | Hints GFF file for Braker  |
 |           | --bam         | Path to BAM files (RNAseq) for Braker  |
 | -p          | --prot         | Proteome file (for egg2gbk)  |
 | -s          | --species         | Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)  |
@@ -33,13 +33,18 @@ annopipe [OPTIONS]
 
 ## Examples
 
+### Run Braker, Trinotate, and Pathologic
+```
+	annopipe --threads 32 --braker --rm consensi.fa.classified --hints At_isoseq.gff --bam path_to_bams --run 0 --name A.thaliana --genome TAIR10_genome.fa --outdir At_anno
+```
+
 ### Skip functional annotation and use a protein file to create a gene-bank file with eggnog data
 ```
-	annopipe --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --prot At.proteins.fa --egg At.eggnog.annotations --outdir At_trinotate
+	annopipe --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --prot At.proteins.fa --egg At.eggnog.annotations --outdir At_anno
 ```
 ### Create functional annotation with BLASTp and BLASTx alone, and create a gene-bank file with that data
 ```
-	annopipe --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --egg 0 --run swissprot_blastp,swissprot_blastx,EggnogMapper --outdir At_trinotate
+	annopipe --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --egg 0 --run swissprot_blastp,swissprot_blastx,EggnogMapper --outdir At_anno
 ```
 
 ## Comments
