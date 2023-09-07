@@ -245,6 +245,13 @@ fi
 pl_script=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
 echo -e '#!/usr/bin/perl -w\nuse strict;\nmy @cols;\nmy $new_nine;\nwhile (<>) {\n        chomp;\n        @cols = split /\\t/, $_;\n        $new_nine=$cols[8];\n        if ($cols[2]eq"gene") {\n                $new_nine="gene_id \\"$cols[8]\\"";\n        } elsif ($cols[2]eq"transcript") {\n                $new_nine="transcript_id \"$cols[8]\"";\n        }\n        print join "\\t", $cols[0],$cols[1],$cols[2],$cols[3],$cols[4],$cols[5],$cols[6],$cols[7],$new_nine;\n        print "\\n";\n}' > $pl_script
 
+if [[ ${gtff##*.} == "gtf" ]]
+ then
+  tmp_gff=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
+  gtf2gff $gtff > $tmp_gff
+  gtff=$tmp_gff
+ fi
+ 
 if [ ! -z ${hints+x} ]
 then
  braker.pl \
