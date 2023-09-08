@@ -209,7 +209,7 @@ then
  rm -f $TRINOTATE_DATA_DIR"/__chckpts/cp_trinotate_boilerplate_sqlite_to_"$Name".sqlite.ok"
  gobo=$TRINOTATE_DATA_DIR"/go-basic.obo"
 else
- wget -O $tmpdir http://purl.obolibrary.org/obo/go/go-basic.obo
+ wget -O $tmpdir"/go-basic.obo" http://purl.obolibrary.org/obo/go/go-basic.obo
  gobo=$tmpdir"/go-basic.obo"
 fi
 
@@ -312,7 +312,11 @@ Trinotate_GTF_or_GFF3_annot_prep.pl \
 
 cp --force $tmpdir"/"$Name".gene-to-trans-map" $outdir
 
-[ -f $tmpdir"/"$Name".proteins.fa" ] && cp --force $tmpdir"/"$Name".proteins.fa" $outdir
+if [ -f $tmpdir"/"$Name".proteins.fa" ]
+then
+ sed -i -E 's/[.]pep .+//g' $tmpdir"/"$Name".proteins.fa"
+ cp --force $tmpdir"/"$Name".proteins.fa" $outdir
+fi
 
 if [ -z ${prot+x} ]
 then
@@ -333,7 +337,11 @@ Trinotate \
 --run "${run[*]}" \
 --use_diamond
 
-[ -f $tmpdir"/eggnog_mapper.emapper.annotations" ] && cp --force $tmpdir"/eggnog_mapper.emapper.annotations" $outdir
+if [ -f $tmpdir"/eggnog_mapper.emapper.annotations" ]
+then
+ sed -i -E 's/[.]pep\t/\t/g' $tmpdir"/eggnog_mapper.emapper.annotations"
+ cp --force $tmpdir"/eggnog_mapper.emapper.annotations" $outdir"/"$Name"_eggnog_mapper.emapper.annotations"
+fi
 
 if [[ $egg == "0" ]]
 then
@@ -353,7 +361,7 @@ then
  > $tmpdir"/"$Name"_GO_output"
  
  grep --word-regexp --invert-match -f <(cut --fields=1 $tmpdir"/"$Name"_GO_output" | sort --unique) <(cut -f1 $tmpdir"/"$Name".gene-to-trans-map") |
- sort > $outdir"/"$Name"_GO_mapping"
+ sort > $outdir"/"$Name".GOmap"
  
  if [ -z ${species+x} ]
  then
@@ -362,7 +370,7 @@ then
 
  cat \
  <(echo "(species="$species")(type=BiNGO)(curator=GO)") \
- <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' $outdir"/"$Name"_GO_mapping") \
+ <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' $outdir"/"$Name".GOmap") \
  > $outdir"/"$Name".BiNGO"
 
 fi
