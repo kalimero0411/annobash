@@ -357,11 +357,9 @@ then
  extract_GO_assignments_from_Trinotate_xls.pl \
  --Trinotate_xls $outdir"/"$Name"_report.tsv" \
  -G \
- --include_ancestral_terms \
- > $tmpdir"/"$Name"_GO_output"
- 
- grep --word-regexp --invert-match -f <(cut --fields=1 $tmpdir"/"$Name"_GO_output" | sort --unique) <(cut -f1 $tmpdir"/"$Name".gene-to-trans-map") |
- sort > $outdir"/"$Name".GOmap"
+ --include_ancestral_terms |
+ awk -F $'\t' '{split($2, a, ","); for (i in a) print $1 "\t" a[i]}' \
+ > $outdir"/"$Name".GOmap"
  
  if [ -z ${species+x} ]
  then
