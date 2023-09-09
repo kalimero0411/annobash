@@ -314,8 +314,8 @@ cp --force $tmpdir"/"$Name".gene-to-trans-map" $outdir
 
 if [ -f $tmpdir"/"$Name".proteins.fa" ]
 then
- sed -i -E 's/[.]pep .+//g' $tmpdir"/"$Name".proteins.fa"
- cp --force $tmpdir"/"$Name".proteins.fa" $outdir
+ sed -i -E 's/[.]pep / /g' $tmpdir"/"$Name".proteins.fa"
+ sed -E 's/ .+//g' $tmpdir"/"$Name".proteins.fa" > $outdir"/"$Name".proteins.fa"
 fi
 
 if [ -z ${prot+x} ]
@@ -386,7 +386,7 @@ then
  fi
  
  tmp_prot=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
- sed -E 's/(>[^.]+)[.]pep.*/\1/g' $prot > $tmp_prot
+ sed -E 's/[.]pep.+//g' $prot > $tmp_prot
  prot=$tmp_prot
  
  tmp_egg=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
