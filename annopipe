@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 # Default parameters
 threads=$(command -v nproc --all &> /dev/null && nproc || echo 1)
