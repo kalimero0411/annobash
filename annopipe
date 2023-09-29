@@ -261,7 +261,7 @@ then
  --softmasking \
  --hints="$hints"
  --genome=$genome \
- --bam=$(find $bam -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
+ --bam=$(find $bam -type f -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
  --workingdir=$tmpdir/braker_out \
  --threads $threads
 else
@@ -270,7 +270,7 @@ else
  --useexisting \
  --softmasking \
  --genome=$genome \
- --bam=$(find $bam -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
+ --bam=$(find $bam -type f -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
  --workingdir=$tmpdir/braker_out \
  --threads $threads
 fi
