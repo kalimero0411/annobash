@@ -23,7 +23,8 @@ annopipe [OPTIONS]
 |           | --bam         | Path to BAM files (RNAseq) for Braker  |
 | -p          | --prot         | Proteome file (for egg2gbk)  |
 | -s          | --species         | Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)  |
-| -r          | --run         | Analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')  |
+| -r          | --run         | Trinotate analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')  |
+	| --bingo         | Create BiNGO-style GO mapping from GOmap file (default when running Trinotate) |
 | -gt          | --gff-type         | Type of GFF CDS retrieval passed to emapper2gbk (see README)  |
 | -c          | --patho         | Create Pathway tools database using Pathologic  |
 | -k          | --keep         | Keep all temp files in outdir  |
