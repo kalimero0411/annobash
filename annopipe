@@ -347,6 +347,7 @@ if [ -f $tmpdir"/eggnog_mapper.emapper.annotations" ]
 then
  sed -i -E 's/[.]pep\t/\t/g' $tmpdir"/eggnog_mapper.emapper.annotations"
  cp --force $tmpdir"/eggnog_mapper.emapper.annotations" $outdir"/"$Name"_eggnog_mapper.emapper.annotations"
+ egg=$tmpdir"/eggnog_mapper.emapper.annotations"
 fi
 
 if [[ $egg == "0" ]]
