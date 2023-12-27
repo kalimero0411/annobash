@@ -303,8 +303,8 @@ cd $tmpdir
 
 if [[ ${gtff##*.} == "gff" ]]
 then
- cp --force $gtff $tmpdir"/"$gtff"3"
- gtff=$tmpdir"/"$gtff"3"
+ cp --force $gtff $tmpdir"/"$(basename $gtff)"3"
+ gtff=$tmpdir"/"$(basename $gtff)"3"
 fi
 
 Trinotate --create \
