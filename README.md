@@ -17,7 +17,7 @@ annopipe [OPTIONS]
 | -g         | --genome         | Genome FASTA file  |
 | -f          | --gtff         | Structural annotation file in gtf/gff3 format  |
 | -o          | --outdir         | Output directory (Default = Name_annopipe)  |
-| -e          | --egg         | Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only OR '--egg 0' to get the file from annopipe)  |
+| -e          | --egg         | Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only; taken from Trinotate if omitted)  |
 | -b          | --braker         | Run Braker  |
 | -i          | --hints         | Hints GFF file for Braker  |
 |           | --bam         | Path to BAM files (RNAseq) for Braker  |
