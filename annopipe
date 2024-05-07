@@ -362,8 +362,15 @@ then
  --Trinotate_xls $outdir"/"$Name"_report.tsv" \
  -G \
  --include_ancestral_terms |
- awk -F $'\t' '{split($2, a, ","); for (i in a) print $1 "\t" a[i]}' \
- > $outdir"/"$Name".GOmap"
+ awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
+ > $outdir"/"$Name".gene.GOmap"
+
+ extract_GO_assignments_from_Trinotate_xls.pl \
+ --Trinotate_xls $outdir"/"$Name"_report.tsv" \
+ -T \
+ --include_ancestral_terms |
+ awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
+ > $outdir"/"$Name".transcript.GOmap"
  
  if [ -z ${species+x} ]
  then
