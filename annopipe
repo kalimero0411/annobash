@@ -365,22 +365,27 @@ then
  awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
  > $outdir"/"$Name".gene.GOmap"
 
+ cat \
+ <(echo "(species="$species")(type=BiNGO)(curator=GO)") \
+ <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' $outdir"/"$Name".gene.GOmap") \
+ > $outdir"/"$Name".gene.BiNGO"
+ 
  extract_GO_assignments_from_Trinotate_xls.pl \
  --Trinotate_xls $outdir"/"$Name"_report.tsv" \
  -T \
  --include_ancestral_terms |
  awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
  > $outdir"/"$Name".transcript.GOmap"
- 
+
+ cat \
+ <(echo "(species="$species")(type=BiNGO)(curator=GO)") \
+ <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' $outdir"/"$Name".transcript.GOmap") \
+ > $outdir"/"$Name".transcript.BiNGO"
+  
  if [ -z ${species+x} ]
  then
   species="None"
  fi
-
- cat \
- <(echo "(species="$species")(type=BiNGO)(curator=GO)") \
- <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' $outdir"/"$Name".GOmap") \
- > $outdir"/"$Name".BiNGO"
 
 fi
 fi
