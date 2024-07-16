@@ -23,9 +23,6 @@ annopipe [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf]
 	-f | --gtff # Structural annotation file in gtf/gff3 format
 	-o | --outdir # Output directory (Default = Name_annopipe)
         -e | --egg # Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only; taken from Trinotate if omitted)
-        -b | --braker   Run Braker
-        -i | --hints   Hints GFF file for Braker
-        --bam      Path to BAM files (RNAseq) for Braker
         -p | --prot # Proteome file (for egg2gbk)
         -s | --species # Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)
 	-r | --run # Trinotate analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')
@@ -65,14 +62,6 @@ arg="$1"
   egg="$2" # Eggnog annotation file
   shift 2
   ;;
-  -b | --braker)
-  braker=1 # Run Braker
-  shift 1
-  ;;
-  --bam)
-  bam=$(readlink -f "$2") # BAM RNAseq files
-  shift 2
-  ;;
   -p | --prot)
   prot=$(readlink -f "$2") # Protein file
   shift 2
@@ -94,10 +83,6 @@ arg="$1"
   ;;
   -gt | --gff-type)
   gfftype="$2"
-  shift 2
-  ;;
-  -i | --hints)
-  hints="$2"
   shift 2
   ;;
   -c | --patho)
@@ -129,13 +114,6 @@ arg="$1"
  done
 
  # Check dependencies
-  if ! command -v braker.pl &> /dev/null && [ ! -z ${braker+x} ]
-  then
-   echo "braker not installed" >&2
-   echo "https://github.com/Gaius-Augustus/BRAKER" >&2
-   deps+="braker"
-  fi
-  
   if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
   then
    echo "emapper2gbk not installed" >&2
@@ -177,7 +155,7 @@ arg="$1"
    exit 1
   fi
   
-  if [ -z ${gtff+x} ] && [ ! -z ${run+x} ] && [ -z ${braker+x} ]
+  if [ -z ${gtff+x} ] && [ ! -z ${run+x} ]
   then
    echo "Must designate structural annotation file with -f | --gtff" >&2
    exit 1
@@ -240,62 +218,6 @@ fi
 if [ ! -z ${egg+x} ] && [[ $egg == "0" ]] && [ ! -z ${run+x} ] && [[ ! ${run[@]} =~ "EggnogMapper" ]]
 then
  run+="EggnogMapper"
-fi
-
-if [ ! -z ${braker+x} ]
-then
-if [ -z ${species+x} ]
-then
- echo "Please specify a species with '-s | --species'" >2&
- exit 1
-fi
-
-pl_script=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
-echo -e '#!/usr/bin/perl -w\nuse strict;\nmy @cols;\nmy $new_nine;\nwhile (<>) {\n        chomp;\n        @cols = split /\\t/, $_;\n        $new_nine=$cols[8];\n        if ($cols[2]eq"gene") {\n                $new_nine="gene_id \\"$cols[8]\\"";\n        } elsif ($cols[2]eq"transcript") {\n                $new_nine="transcript_id \"$cols[8]\"";\n        }\n        print join "\\t", $cols[0],$cols[1],$cols[2],$cols[3],$cols[4],$cols[5],$cols[6],$cols[7],$new_nine;\n        print "\\n";\n}' > $pl_script
-
-if [[ ${gtff##*.} == "gtf" ]]
- then
-  tmp_gff=$(mktemp --tmpdir=$tmpdir annopipe.XXXXXXXXXX)
-  gtf2gff $gtff > $tmp_gff
-  gtff=$tmp_gff
- fi
- 
-if [ ! -z ${hints+x} ]
-then
- braker.pl \
- --species="${species/ /_}" \
- --useexisting \
- --softmasking \
- --hints="$hints"
- --genome=$genome \
- --bam=$(find $bam -type f -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
- --workingdir=$tmpdir/braker_out \
- --threads $threads
-else
- braker.pl \
- --species="${species/ /_}" \
- --useexisting \
- --softmasking \
- --genome=$genome \
- --bam=$(find $bam -type f -name "*bam" | tr "\n" "," | sed -E 's/,$//g') \
- --workingdir=$tmpdir/braker_out \
- --threads $threads
-fi
-
-perl $pl_script < $tmpdir/braker_out/braker.gtf |
-if [ $(head $tmpdir/braker_out/braker.gtf | grep -cP "file_[0-9]") -gt 0 ]
-then
- sed -E 's/file_[0-9]+_file_[0-9]+_//g'
-else
- cat
-fi |
-tee $tmpdir/braker_out/braker_fixed.gtf |
-gtf2gff > $tmpdir/braker_out/braker_fixed.gff3
-
-cp --force $tmpdir/braker_out/braker_fixed.gtf $outdir"/"$Name".gtf"
-cp --force $tmpdir/braker_out/braker_fixed.gff3 $outdir"/"$Name".gff3"
-
-gtff=$outdir"/"$Name".gff3"
 fi
 
 if [ ! -z ${run+x} ]
