@@ -1,0 +1,369 @@
+#!/usr/bin/env bash
+# set -e
+# GOMCL.py -Ct 0.5 -I 1.5 go-basic.obo
+
+# Default parameters
+threads=$(command -v nproc --all &> /dev/null && nproc || echo 1)
+gfftype="mRNA"
+
+# Cleanup temp files
+tmpdir=$(mktemp --tmpdir=/tmp --directory annobash.XXXXXXXXXX)
+chmod --recursive 775 $tmpdir
+cleanup(){
+ rm --force --recursive $tmpdir
+}
+trap cleanup EXIT
+
+function print_usage(){
+ printf "Perform functional annotation of a genome, given a FASTA file and a GFF3/GTF file
+
+annobash [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf] [-o outdir]
+	-n | --name # Name of the run
+	-g | --genome # Genome FASTA file
+	-f | --gtff # Structural annotation file in gtf/gff3 format
+	-o | --outdir # Output directory (Default = Name_annobash)
+        -e | --egg # Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only; taken from Trinotate if omitted)
+        -p | --prot # Proteome file (for egg2gbk)
+        -s | --species # Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)
+	-r | --run # Trinotate analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')
+	--bingo      Create BiNGO-style GO mapping from GOmap file (default when running Trinotate)
+	-gt | --gff-type # Type of GFF CDS retrieval passed to emapper2gbk (see README)
+	-c | --patho # Create Pathway tools database using Pathologic
+	-k | --keep # Keep all temp files in outdir
+	-t | --threads #	Number of CPU threads to use (Default = Detected processors or 1)
+	-h | --help # Print help
+	
+	Example: annobash --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --egg 0 --run swissprot_blastp,swissprot_blastx,EggnogMapper --outdir At_trinotate
+	
+"
+}
+
+while [ "$#" -gt 0 ]
+do
+arg="$1"
+ case $arg in
+  -n | --name)
+  Name="$2" # Run name
+  shift 2
+  ;;
+  -g | --genome)
+  genome=$(readlink -f "$2") # genome FASTA file path
+  shift 2
+  ;;
+  -f | --gtff)
+  gtff=$(readlink -f "$2") # gtf/gff3 file path
+  shift 2
+  ;;
+  -o | --outdir)
+  outdir=$(readlink -f "$2") # output directory
+  shift 2
+  ;;
+  -e | --egg)
+  egg="$2" # Eggnog annotation file
+  shift 2
+  ;;
+  -p | --prot)
+  prot=$(readlink -f "$2") # Protein file
+  shift 2
+  ;;
+  -s | --species)
+  species="$2" # Species
+  shift 2
+  ;;
+  -r | --run)
+  OFS=$IFS
+  IFS=","
+  run=($(echo "$2"))
+  IFS=$OFS
+  shift 2
+  ;;
+  --bingo)
+  bingo="$2"
+  shift 2
+  ;;
+  -gt | --gff-type)
+  gfftype="$2"
+  shift 2
+  ;;
+  -c | --patho)
+  patho=1
+  shift 1
+  ;;
+  -k | --keep)
+  shift 1
+  ;;  
+  -t | --threads)
+  threads=$2 # Threads
+  shift 2
+  ;;
+  -h | --help)
+  print_usage
+  exit 1
+  ;;
+  *)
+  if [ -f "$1" ]
+  then
+   break
+  else
+  echo "Unknown option: "$1
+  print_usage
+  exit 1
+  fi
+  ;;
+  esac
+ done
+
+ # Check dependencies
+  if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
+  then
+   echo "emapper2gbk not installed" >&2
+   echo "https://github.com/AuReMe/emapper2gbk" >&2
+   deps+="emapper2gbk"
+  fi
+  
+  if ! command -v gt &> /dev/null
+  then
+   echo "genometools not installed" >&2
+   echo "sudo apt install genometools" >&2
+   deps+="genometools"
+  fi
+  
+  if ! command -v Trinotate &> /dev/null && [ ! -z ${run+x} ]
+  then
+   echo "Trinotate not installed" >&2
+   echo "https://github.com/Trinotate/Trinotate" >&2
+   deps+="Trinotate"
+  fi
+
+  if ! command -v mpwt &> /dev/null && [ ! -z ${egg+x} ]
+  then
+   echo "mpwt not installed" >&2
+   echo "https://github.com/AuReMe/mpwt" >&2
+   deps+="mpwt"
+  fi
+  
+  if [ ! -z ${deps+x} ]
+  then
+   exit 1
+  fi
+  
+  if [ ! -z ${run+x} ] || [ ! -z ${egg+x} ]
+  then
+  if [ -z ${genome+x} ]
+  then
+   echo "Must designate genome file with -g | --genome" >&2
+   exit 1
+  fi
+  
+  if [ -z ${gtff+x} ] && [ ! -z ${run+x} ]
+  then
+   echo "Must designate structural annotation file with -f | --gtff" >&2
+   exit 1
+  fi
+  fi
+   
+  if [ -z ${Name+x} ]
+  then
+   echo "Must designate name with -n | --name" >&2
+   exit 1
+  fi
+  
+  gtf2gff(){
+   local tmp_gff=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
+   local input=$1
+   cat $input |
+   grep -P "\tCDS\t|\texon\t" |
+   gt gtf_to_gff3 |
+   grep -vP "^###$" > $tmp_gff
+   cat <(grep "#" $tmp_gff) <(grep -v "#" $tmp_gff | awk -F $'\t' '{OFS="\t"};
+   {gene=gensub(/.*gene_id=([^;]+).*/,"\\1","G",$9);
+   trans=gensub(/.*transcript_id=([^;]+).*/,"\\1","G",$9)};
+   $3 ~ /gene/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="gene}
+   $3 ~ /mRNA/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="gene}
+   $3 ~ /CDS|exon/{print $1,$2,$3,$4,$5,$6,$7,$8,"ID="trans";Parent="trans}
+   $3 !~ /gene|mRNA|transcript|CDS|exon/{print $0}')
+  }
+  
+if [[ ${run[@]-x} =~ "0" ]]
+then
+ run=(swissprot_blastp swissprot_blastx pfam signalp6 tmhmmv2 infernal EggnogMapper)
+fi
+
+if [ ! -z ${TRINOTATE_DATA_DIR+x} ] && [ ! -z ${run+x} ]
+then
+ rm -f $TRINOTATE_DATA_DIR"/__chckpts/cp_trinotate_boilerplate_sqlite_to_"$Name".sqlite.ok"
+ gobo=$TRINOTATE_DATA_DIR"/go-basic.obo"
+elif [ ! -z ${run+x} ]
+then
+ wget -O $tmpdir"/go-basic.obo" http://purl.obolibrary.org/obo/go/go-basic.obo
+ gobo=$tmpdir"/go-basic.obo"
+fi
+
+if [ -z ${outdir+x} ]
+then
+ outdir=$(pwd)"/"$Name"_annobash"
+fi
+
+if [ ! -d $outdir ]
+then
+ mkdir --parents $outdir
+fi
+
+if [ ! -z ${egg+x} ] && [ -z ${species+x} ]
+then
+ echo "Please specify a species with '-s | --species'" >2&
+ exit 1
+fi
+
+if [ ! -z ${egg+x} ] && [[ $egg == "0" ]] && [ ! -z ${run+x} ] && [[ ! ${run[@]} =~ "EggnogMapper" ]]
+then
+ run+="EggnogMapper"
+fi
+
+if [ ! -z ${run+x} ]
+then
+
+cd $tmpdir
+
+if [[ ${gtff##*.} == "gff" ]]
+then
+ cp --force $gtff $tmpdir"/"$(basename $gtff)"3"
+ gtff=$tmpdir"/"$(basename $gtff)"3"
+fi
+
+Trinotate --create \
+--db $tmpdir"/"$Name.sqlite \
+--use_diamond
+
+Trinotate_GTF_or_GFF3_annot_prep.pl \
+--annot $gtff \
+--genome_fa $genome \
+--out_prefix $tmpdir"/"$Name
+
+cp --force $tmpdir"/"$Name".gene-to-trans-map" $outdir
+
+if [ -f $tmpdir"/"$Name".proteins.fa" ]
+then
+ sed -i -E 's/[.]pep / /g' $tmpdir"/"$Name".proteins.fa"
+ sed -E 's/ .+//g' $tmpdir"/"$Name".proteins.fa" > $outdir"/"$Name".proteins.fa"
+fi
+
+if [ -z ${prot+x} ]
+then
+ prot=$tmpdir"/"$Name.proteins.fa
+fi
+
+Trinotate --init \
+--db $tmpdir"/"$Name.sqlite \
+--gene_trans_map $tmpdir"/"$Name.gene-to-trans-map \
+--transcript_fasta $tmpdir"/"$Name.transcripts.cdna.fa \
+--transdecoder_pep $tmpdir"/"$Name.proteins.fa
+
+Trinotate \
+--db $tmpdir"/"$Name.sqlite \
+--CPU $threads \
+--transcript_fasta $tmpdir"/"$Name.transcripts.cdna.fa \
+--transdecoder_pep $tmpdir"/"$Name.proteins.fa \
+--run "${run[*]}" \
+--use_diamond
+
+if [ -z ${egg+x} ] && [[ ${run[@]} =~ "EggnogMapper" ]]
+then
+ sed -i -E 's/[.]pep\t/\t/g' $tmpdir"/eggnog_mapper.emapper.annotations"
+ cp --force $tmpdir"/eggnog_mapper.emapper.annotations" $outdir"/"$Name"_eggnog_mapper.emapper.annotations"
+ egg=$tmpdir"/eggnog_mapper.emapper.annotations"
+fi
+
+if [[ ${run[@]} =~ "swissprot_blastp" ]] || [[ ${run[@]} =~ "swissprot_blastx" ]]
+then
+ Trinotate --report \
+ --db $tmpdir"/"$Name.sqlite \
+ > $outdir"/"$Name"_report.tsv"
+
+ extract_GO_assignments_from_Trinotate_xls.pl \
+ --Trinotate_xls $outdir"/"$Name"_report.tsv" \
+ -G \
+ --include_ancestral_terms |
+ awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
+ > $outdir"/"$Name".gene.GOmap"
+
+ cat \
+ <(echo "(species="$species")(type=BiNGO)(curator=GO)") \
+ <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' $outdir"/"$Name".gene.GOmap") \
+ > $outdir"/"$Name".gene.BiNGO"
+ 
+ extract_GO_assignments_from_Trinotate_xls.pl \
+ --Trinotate_xls $outdir"/"$Name"_report.tsv" \
+ -T \
+ --include_ancestral_terms |
+ awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
+ > $outdir"/"$Name".transcript.GOmap"
+
+ cat \
+ <(echo "(species="$species")(type=BiNGO)(curator=GO)") \
+ <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' $outdir"/"$Name".transcript.GOmap") \
+ > $outdir"/"$Name".transcript.BiNGO"
+  
+ if [ -z ${species+x} ]
+ then
+  species="None"
+ fi
+
+fi
+fi
+
+if [ ! -z ${bingo+x} ] && [[ ! ${run[@]} =~ "swissprot_blastp" ]] && [[ ! ${run[@]} =~ "swissprot_blastx" ]]
+then
+
+ cat \
+ <(echo "(species="$species")(type=BiNGO)(curator=GO)") \
+ <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' $bingo) \
+ > $outdir"/"$Name".BiNGO"
+fi
+
+if [ ! -z ${patho+x} ]
+then
+ if [[ ${gtff##*.} == "gtf" ]]
+ then
+  tmp_gff=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
+  gtf2gff $gtff > $tmp_gff
+  gtff=$tmp_gff
+ fi
+ 
+ tmp_prot=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
+ sed -E 's/[.]pep.+//g' $prot > $tmp_prot
+ prot=$tmp_prot
+ 
+ tmp_egg=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
+ sed -E 's/[.]pep\t/\t/g' $egg > $tmp_egg
+ egg=$tmp_egg
+ 
+ emapper2gbk genomes \
+ --fastanucleic $genome \
+ --fastaprot $prot \
+ --gff $gtff \
+ --name "$species" \
+ --out $outdir"/"$Name.gbk \
+ --annotation $egg \
+ --cpu $threads \
+ --gobasic $gobo \
+ --gff-type $gfftype
+ 
+ mkdir --parents $tmpdir"/pgdb/"$Name
+ ln -s $outdir"/"$Name".gbk" $tmpdir"/pgdb/"$Name"/"
+ mpwt \
+ -f=$tmpdir"/pgdb" \
+ -o=$tmpdir \
+ --hf \
+ --tp \
+ --cp \
+ --patho \
+ --clean \
+ --cpu $threads \
+ -v
+fi
+
+if [ ! -z $keep ]
+then
+ mv --force $tmpdir $outdir
+fi
