@@ -3,7 +3,7 @@
 # GOMCL.py -Ct 0.5 -I 1.5 go-basic.obo
 
 # Default parameters
-threads=$(command -v nproc --all &> /dev/null && nproc || echo 1)
+threads=$(command nproc --all || echo 1)
 gfftype="mRNA"
 
 # Cleanup temp files
@@ -15,27 +15,27 @@ cleanup(){
 trap cleanup EXIT
 
 function print_usage(){
- printf "Perform functional annotation of a genome, given a FASTA file and a GFF3/GTF file
+local usage="Perform functional annotation of a genome, given a FASTA file and a GFF3/GTF file
 
 annobash [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf] [-o outdir]
-	-n | --name # Name of the run
-	-g | --genome # Genome FASTA file
-	-f | --gtff # Structural annotation file in gtf/gff3 format
-	-o | --outdir # Output directory (Default = Name_annobash)
-        -e | --egg # Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only; taken from Trinotate if omitted)
-        -p | --prot # Proteome file (for egg2gbk)
-        -s | --species # Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)
-	-r | --run # Trinotate analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')
-	--bingo      Create BiNGO-style GO mapping from GOmap file (default when running Trinotate)
-	-gt | --gff-type # Type of GFF CDS retrieval passed to emapper2gbk (see README)
-	-c | --patho # Create Pathway tools database using Pathologic
-	-k | --keep # Keep all temp files in outdir
-	-t | --threads #	Number of CPU threads to use (Default = Detected processors or 1)
-	-h | --help # Print help
+  -n | --name	Name of the run
+  -g | --genome	Genome FASTA file
+  -f | --gtff	Structural annotation file in gtf/gff3 format
+  -o | --outdir	Output directory (Default = Name_annobash)
+  -e | --egg	Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only; taken from Trinotate if omitted)
+  -p | --prot	Proteome file (for egg2gbk)
+  -s | --species	Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)
+  -r | --run	Trinotate analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')
+  --bingo	Create BiNGO-style GO mapping from GOmap file (default when running Trinotate)
+  -gt | --gff-type	Type of GFF CDS retrieval passed to emapper2gbk (see README)
+  -c | --patho	Create Pathway tools database using Pathologic
+  -k | --keep	Keep all temp files in outdir
+  -t | --threads	Number of CPU threads to use (Default = Detected processors or 1)
+  -h | --help	Print help
 	
-	Example: annobash --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --egg 0 --run swissprot_blastp,swissprot_blastx,EggnogMapper --outdir At_trinotate
-	
+  Example: annobash --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --egg 0 --run swissprot_blastp,swissprot_blastx,EggnogMapper --outdir At_trinotate	
 "
+printf "$usage" | awk -F $'\t' '{ printf "%-30s %s\n", $1, $2 }'
 }
 
 while [ "$#" -gt 0 ]
@@ -195,7 +195,7 @@ then
  gobo=$TRINOTATE_DATA_DIR"/go-basic.obo"
 elif [ ! -z ${run+x} ]
 then
- wget -O $tmpdir"/go-basic.obo" http://purl.obolibrary.org/obo/go/go-basic.obo
+ wget --quiet -O $tmpdir"/go-basic.obo" http://purl.obolibrary.org/obo/go/go-basic.obo
  gobo=$tmpdir"/go-basic.obo"
 fi
 
