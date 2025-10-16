@@ -1,9 +1,9 @@
 # annobash
 A bash script for functional annotation (Trinotate) and metabolic pathway prediction (Pathwaytools)
 
-The script is a wrapper for:
-Trinotate - https://github.com/Trinotate/Trinotate
-emapper2gbk - https://github.com/AuReMe/emapper2gbk
+The script is a wrapper for: <br />
+Trinotate - https://github.com/Trinotate/Trinotate <br />
+emapper2gbk - https://github.com/AuReMe/emapper2gbk <br />
 mpwt - https://github.com/AuReMe/mpwt
 
 ```
@@ -26,6 +26,7 @@ annobash [OPTIONS]
 | -c          | --patho         | Create Pathway tools database using Pathologic  |
 | -k          | --keep         | Keep all temp files in outdir  |
 | -t           | --threads #        | Number of CPU threads to use (Default = Detected processors or 1)  |
+| -v           | --version        | Version  |
 | -h           | --help       | Display help  |
 
 

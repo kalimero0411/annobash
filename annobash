@@ -3,6 +3,7 @@
 # GOMCL.py -Ct 0.5 -I 1.5 go-basic.obo
 
 # Default parameters
+version=2025.10
 threads=$(command nproc --all || echo 1)
 gfftype="mRNA"
 
@@ -31,6 +32,7 @@ annobash [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf]
   -c | --patho	Create Pathway tools database using Pathologic
   -k | --keep	Keep all temp files in outdir
   -t | --threads	Number of CPU threads to use (Default = Detected processors or 1)
+  -v | --version	Version
   -h | --help	Print help
 	
   Example: annobash --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --egg 0 --run swissprot_blastp,swissprot_blastx,EggnogMapper --outdir At_trinotate	
@@ -95,6 +97,10 @@ arg="$1"
   -t | --threads)
   threads=$2 # Threads
   shift 2
+  ;;
+  -v | --version)
+  echo $version >&2
+  exit 0
   ;;
   -h | --help)
   print_usage
@@ -349,8 +355,9 @@ then
  --gobasic $gobo \
  --gff-type $gfftype
  
- mkdir --parents $tmpdir"/pgdb/"$Name
- ln -s $outdir"/"$Name".gbk" $tmpdir"/pgdb/"$Name"/"
+ ReName=$(echo $Name | sed 's/[\/\\ .]/_/g')
+ mkdir --parents $tmpdir"/pgdb/"$ReName
+ ln -s $outdir"/"$Name".gbk" $tmpdir"/pgdb/"$ReName"/"
  mpwt \
  -f=$tmpdir"/pgdb" \
  -o=$tmpdir \
