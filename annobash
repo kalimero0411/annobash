@@ -161,7 +161,7 @@ arg="$1"
   
   if [ ! -z ${bingo+x} ]
   then
-   if [ -z ${genome+x} ]
+   if [ -z ${species+x} ]
    then
     echo "Must designate species name with -s | --species" >&2
    fi
