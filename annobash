@@ -3,7 +3,7 @@
 # GOMCL.py -Ct 0.5 -I 1.5 go-basic.obo
 
 # Default parameters
-version=2025.10
+version=2025.11
 threads=$(command nproc --all || echo 1)
 gfftype="mRNA"
 
