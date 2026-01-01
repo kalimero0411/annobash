@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# set -e
-# GOMCL.py -Ct 0.5 -I 1.5 go-basic.obo
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Beery Yaakov
+set -e
 
 # Default parameters
-version=2025.11
+version=2026.01
+script_dir=$(dirname $(readlink --canonicalize "${BASH_SOURCE[0]}"))
 threads=$(command nproc --all || echo 1)
-gfftype="mRNA"
 
 # Cleanup temp files
 tmpdir=$(mktemp --tmpdir=/tmp --directory annobash.XXXXXXXXXX)
@@ -23,19 +24,21 @@ annobash [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf]
   -g | --genome	Genome FASTA file
   -f | --gtff	Structural annotation file in gtf/gff3 format
   -o | --outdir	Output directory (Default = Name_annobash)
-  -e | --egg	Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only; taken from Trinotate if omitted)
+  -e | --egg	Annotation file produced by EggnogMapper (use '--egg path_to_file' for --patho only; taken from Trinotate if omitted)
   -p | --prot	Proteome file (for egg2gbk)
-  -s | --species	Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)
+  -s | --species	Full species name (e.g. \"Arabidopsis thaliana\")
   -r | --run	Trinotate analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')
   --bingo	Create BiNGO-style GO mapping from GOmap file and exit (default when running Trinotate)
-  -gt | --gff-type	Type of GFF CDS retrieval passed to emapper2gbk (see README)
   -c | --patho	Create Pathway tools database using Pathologic
   -k | --keep	Keep all temp files in outdir
   -t | --threads	Number of CPU threads to use (Default = Detected processors or 1)
   -v | --version	Version
   -h | --help	Print help
 	
-  Example: annobash --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --egg 0 --run swissprot_blastp,swissprot_blastx,EggnogMapper --outdir At_trinotate	
+  Example: annobash --threads 32 --name A.thaliana --genome TAIR10_genome.fa --gtff TAIR10.gff3 --egg 0 --run swissprot_blastp,swissprot_blastx,EggnogMapper --outdir At_trinotate
+
+License: MIT
+Copyright (c) 2025 Beery Yaakov
 "
 printf "$usage" | awk -F $'\t' '{ printf "%-30s %s\n", $1, $2 }'
 }
@@ -83,10 +86,6 @@ arg="$1"
   bingo="$2"
   shift 2
   ;;
-  -gt | --gff-type)
-  gfftype="$2"
-  shift 2
-  ;;
   -c | --patho)
   patho=1
   shift 1
@@ -103,30 +102,23 @@ arg="$1"
   exit 0
   ;;
   -h | --help)
-  print_usage
-  exit 1
+  print_usage >&2
+  exit 0
   ;;
   *)
   if [ -f "$1" ]
   then
    break
   else
-  echo "Unknown option: "$1
-  print_usage
-  exit 1
+  echo "Unknown option: $1" >&2
+  print_usage >&2
+  exit 2
   fi
   ;;
   esac
  done
 
  # Check dependencies
-  if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
-  then
-   echo "emapper2gbk not installed" >&2
-   echo "https://github.com/AuReMe/emapper2gbk" >&2
-   deps+="emapper2gbk"
-  fi
-  
   if ! command -v gt &> /dev/null
   then
    echo "genometools not installed" >&2
@@ -330,38 +322,34 @@ fi
 
 if [ ! -z ${patho+x} ]
 then
+  tmp_gff=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
  if [[ ${gtff##*.} == "gtf" ]]
  then
-  tmp_gff=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
   gtf2gff $gtff > $tmp_gff
-  gtff=$tmp_gff
+ else
+  awk -F $'\t' -v OFS=$'\t' '$3 ~ /^mRNA$/^transcript$/{$3 = "mRNA"; print $0}; $3 == "CDS"{$9 = gensub(/ID=[^;]+;Parent=([^;]+).*/,"ID=\\1;Parent=\\1","1",$9); print $0}' > $tmp_gff
  fi
- 
- tmp_prot=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
- sed -E 's/[.]pep.+//g' $prot > $tmp_prot
- prot=$tmp_prot
+  gtff=$tmp_gff
  
  tmp_egg=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
  sed -E 's/[.]pep\t/\t/g' $egg > $tmp_egg
  egg=$tmp_egg
  
- emapper2gbk genomes \
- --fastanucleic $genome \
- --fastaprot $prot \
+ python $script_dir"/make_pathologic_gff3.py" \
+ --genome $genome \
  --gff $gtff \
- --name "$species" \
- --out $outdir"/"$Name.gbk \
- --annotation $egg \
- --cpu $threads \
- --gobasic $gobo \
- --gff-type $gfftype
+ --eggnog $egg \
+ --embed-fasta \
+ --annotate mRNA \
+ --report $outdir"/"$Name".MissingEgg" \
+ --sequence-region \
+ --out $outdir"/"$Name".pwt.gff3"
  
  ReName=$(echo $Name | sed 's/[\/\\ .]/_/g')
  mkdir --parents $tmpdir"/pgdb/"$ReName
- ln -s $outdir"/"$Name".gbk" $tmpdir"/pgdb/"$ReName"/"
+ ln -s $outdir"/"$Name".pwt.gff3" $tmpdir"/pgdb/"$ReName"/"
  mpwt \
  -f=$tmpdir"/pgdb" \
- -o=$tmpdir \
  --hf \
  --tp \
  --cp \

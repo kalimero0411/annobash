@@ -19,10 +19,9 @@ annobash [OPTIONS]
 | -o          | --outdir         | Output directory (Default = Name_annobash)  |
 | -e          | --egg         | Annotation file produced by EggnogMapper (use '--egg path_to_file' for egg2gbk only; taken from Trinotate if omitted)  |
 | -p          | --prot         | Proteome file (for egg2gbk)  |
-| -s          | --species         | Full species name (e.g. \"Arabidopsis thaliana\") (for egg2gbk)  |
+| -s          | --species         | Full species name (e.g. \"Arabidopsis thaliana\")  |
 | -r          | --run         | Trinotate analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')  |
 |	| --bingo         | Create BiNGO-style GO mapping from GOmap file and exit (default when running Trinotate) |
-| -gt          | --gff-type         | Type of GFF CDS retrieval passed to emapper2gbk (see README)  |
 | -c          | --patho         | Create Pathway tools database using Pathologic  |
 | -k          | --keep         | Keep all temp files in outdir  |
 | -t           | --threads #        | Number of CPU threads to use (Default = Detected processors or 1)  |
@@ -47,7 +46,7 @@ annobash [OPTIONS]
 ```
 
 ## Comments
-- Please read https://github.com/AuReMe/emapper2gbk for compatibility of GFF, Protein and eggnog files. This script runs with `-gt mRNA` by default, change this with `-gt | --gff-type`.
+- Please read https://github.com/AuReMe/emapper2gbk for compatibility of GFF, Protein and eggnog files. This script runs with `-gt mRNA` by default.
 - The `-n | --name`, `-g | --genome` and `-f | --gtff` are mandatory.
 - Excluding `-r | --run` skips functional annotation entirely.
 - The `-p | --prot` option uses the designated file instead of the one produced by Trinotate. To use the proteome file from Trinotate, just exclude `-p | --prot`.
