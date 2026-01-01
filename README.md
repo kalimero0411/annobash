@@ -3,7 +3,7 @@ A bash script for functional annotation (Trinotate) and metabolic pathway predic
 
 The script is a wrapper for: <br />
 Trinotate - https://github.com/Trinotate/Trinotate <br />
-emapper2gbk - https://github.com/AuReMe/emapper2gbk <br />
+GenomeTools - https://genometools.org/ <br />
 mpwt - https://github.com/AuReMe/mpwt
 
 ```
