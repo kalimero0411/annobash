@@ -29,6 +29,7 @@ annobash [OPTIONS] [-n Name] [-g Sequence.fasta] [-f Sequence.gff3|Sequence.gtf]
   -s | --species	Full species name (e.g. \"Arabidopsis thaliana\")
   -r | --run	Trinotate analyses to run (swissprot_blastp,swissprot_blastx,pfam,signalp6,tmhmmv2,infernal,EggnogMapper; run all with '--run 0')
   --bingo	Create BiNGO-style GO mapping from GOmap file and exit (default when running Trinotate)
+  --pwt	Create Pathway tools-compatible [gff] or [gbk] file (default: --pwt gbk) or a path to a pathway tools gff/gbk file 
   -c | --patho	Create Pathway tools database using Pathologic
   -k | --keep	Keep all temp files in outdir
   -t | --threads	Number of CPU threads to use (Default = Detected processors or 1)
@@ -90,6 +91,10 @@ arg="$1"
   patho=1
   shift 1
   ;;
+  --pwt)
+  pwt="$2"
+  shift 2
+  ;;
   -k | --keep)
   shift 1
   ;;  
@@ -119,6 +124,13 @@ arg="$1"
  done
 
  # Check dependencies
+if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
+  then
+   echo "emapper2gbk not installed" >&2
+   echo "https://github.com/AuReMe/emapper2gbk" >&2
+   deps+="emapper2gbk"
+  fi
+
   if ! command -v gt &> /dev/null
   then
    echo "genometools not installed" >&2
@@ -180,6 +192,11 @@ arg="$1"
   then
    echo "Must designate name with -n | --name" >&2
    exit 1
+  fi
+  
+  if [ ! -z ${patho+x} ] && [ -z ${pwt+x} ]
+  then
+   pwt="gbk"
   fi
   
   function gtf2gff(){
@@ -320,8 +337,11 @@ then
 fi
 fi
 
-if [ ! -z ${patho+x} ]
+if [ ! -z ${pwt+x} ] && [ ! -f ${pwt} ]
 then
+ if [ ${pwt} = "gff" ]
+ then
+ 
   tmp_gff=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
  if [[ ${gtff##*.} == "gtf" ]]
  then
@@ -341,13 +361,58 @@ then
  --eggnog $egg \
  --embed-fasta \
  --annotate mRNA \
- --report $outdir"/"$Name".MissingEgg" \
+ --missing $outdir"/"$Name".MissingEgg" \
  --sequence-region \
  --out $outdir"/"$Name".pwt.gff3"
+
+ pwt=$outdir"/"$Name".pwt.gff3"
+
+else
+
+ if [[ ${gtff##*.} == "gtf" ]]
+ then
+  tmp_gff=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
+  gtf2gff $gtff > $tmp_gff
+  gtff=$tmp_gff
+ fi
+
+ tmp_prot=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
+ sed -E 's/[.]pep.+//g' $prot > $tmp_prot
+ prot=$tmp_prot
+
+ tmp_egg=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
+ sed -E 's/[.]pep\t/\t/g' $egg > $tmp_egg
+ egg=$tmp_egg
+
+ emapper2gbk genomes \
+ --fastanucleic $genome \
+ --fastaprot $prot \
+ --gff $gtff \
+ --name "$species" \
+ --out $outdir"/"$Name.gbk \
+ --annotation $egg \
+ --cpu $threads \
+ --gobasic $gobo \
+ --gff-type $gfftype
+
+ pwt=$outdir"/"$Name.gbk
+ 
+fi
+
+if [ ! -z ${patho+x} ]
+then
  
  ReName=$(echo $Name | sed 's/[\/\\ .]/_/g')
  mkdir --parents $tmpdir"/pgdb/"$ReName
- ln -s $outdir"/"$Name".pwt.gff3" $tmpdir"/pgdb/"$ReName"/"
+  
+ if [ ${pwt##*.} = "gff" ] || [ ${pwt##*.} = "gff3" ]
+ then
+  ln -s $pwt $tmpdir"/pgdb/"$ReName"/"$ReName".gff"
+  ln -s $genome $tmpdir"/pgdb/"$ReName"/"$ReName".fasta"
+ else
+  ln -s $pwt $tmpdir"/pgdb/"$ReName"/"$ReName".gbk"
+ fi
+ 
  mpwt \
  -f=$tmpdir"/pgdb" \
  --hf \
