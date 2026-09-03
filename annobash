@@ -220,14 +220,14 @@ then
  run=(swissprot_blastp swissprot_blastx pfam signalp6 tmhmmv2 infernal EggnogMapper)
 fi
 
+wget --quiet -O $tmpdir"/go-basic.obo" http://purl.obolibrary.org/obo/go/go-basic.obo
+gobo=$tmpdir"/go-basic.obo"
+ 
 if [ ! -z ${TRINOTATE_DATA_DIR+x} ] && [ ! -z ${run+x} ]
 then
  rm -f $TRINOTATE_DATA_DIR"/__chckpts/cp_trinotate_boilerplate_sqlite_to_"$Name".sqlite.ok"
+ cp -f $gobo $TRINOTATE_DATA_DIR
  gobo=$TRINOTATE_DATA_DIR"/go-basic.obo"
-elif [ ! -z ${run+x} ]
-then
- wget --quiet -O $tmpdir"/go-basic.obo" http://purl.obolibrary.org/obo/go/go-basic.obo
- gobo=$tmpdir"/go-basic.obo"
 fi
 
 if [ -z ${outdir+x} ]
