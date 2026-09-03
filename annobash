@@ -384,6 +384,8 @@ else
  sed -E 's/[.]pep\t/\t/g' $egg > $tmp_egg
  egg=$tmp_egg
 
+ gfftype="mRNA"
+
  emapper2gbk genomes \
  --fastanucleic $genome \
  --fastaprot $prot \
