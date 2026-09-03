@@ -96,6 +96,7 @@ arg="$1"
   shift 2
   ;;
   -k | --keep)
+  keep=1
   shift 1
   ;;  
   -t | --threads)
@@ -242,7 +243,7 @@ fi
 
 if [ ! -z ${egg+x} ] && [ -z ${species+x} ]
 then
- echo "Please specify a species with '-s | --species'" >2&
+ echo "Please specify a species with '-s | --species'" >&2
  exit 1
 fi
 
