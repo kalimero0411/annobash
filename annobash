@@ -4,7 +4,7 @@
 set -e
 
 # Default parameters
-version=2026.01
+version=2026.10
 script_dir=$(dirname $(readlink --canonicalize "${BASH_SOURCE[0]}"))
 threads=$(command nproc --all || echo 1)
 
@@ -312,21 +312,36 @@ then
  --db $tmpdir"/"$Name.sqlite \
  > $outdir"/"$Name"_report.tsv"
 
+ 
+ cat $outdir"/"$Name"_report.tsv" | tee \
+ >(cut --fields=1,26 |
+  tail +2 |
+  sed 's/ko://g' |
+  grep -v '[.]$' |
+  sort --unique |
+  awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' > $outdir"/"$Name".gene.KEGGmap") |
  extract_GO_assignments_from_Trinotate_xls.pl \
- --Trinotate_xls $outdir"/"$Name"_report.tsv" \
- -G \
- --include_ancestral_terms |
- awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
- > $outdir"/"$Name".gene.GOmap"
+  --Trinotate_xls /dev/stdin \
+  -G \
+  --include_ancestral_terms |
+  awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
+  > $outdir"/"$Name".gene.GOmap"
 
  map2bingo $outdir"/"$Name".gene.GOmap" > $outdir"/"$Name".gene.BiNGO"
  
+ cat $outdir"/"$Name"_report.tsv" | tee \
+ >(cut --fields=2,26 |
+  tail +2 |
+  sed 's/ko://g' |
+  grep -v '[.]$' |
+  sort --unique |
+  awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' > $outdir"/"$Name".transcript.KEGGmap") |
  extract_GO_assignments_from_Trinotate_xls.pl \
- --Trinotate_xls $outdir"/"$Name"_report.tsv" \
- -T \
- --include_ancestral_terms |
- awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
- > $outdir"/"$Name".transcript.GOmap"
+  --Trinotate_xls /dev/stdin \
+  -T \
+  --include_ancestral_terms |
+  awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
+  > $outdir"/"$Name".transcript.GOmap"
 
  map2bingo $outdir"/"$Name".transcript.GOmap" > $outdir"/"$Name".transcript.BiNGO"
   
