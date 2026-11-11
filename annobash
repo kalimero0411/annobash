@@ -4,7 +4,8 @@
 set -e
 
 # Default parameters
-version=2026.10
+version=2026.11
+time_start=$(date +%s)
 script_dir=$(dirname $(readlink --canonicalize "${BASH_SOURCE[0]}"))
 threads=$(command nproc --all || echo 1)
 
@@ -157,13 +158,42 @@ if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
   then
    exit 1
   fi
-  
+
+# Time function
+  function show_time(){
+    num=$(($(date +%s) - time_start))
+    min=0
+    hour=0
+    day=0
+    if((num>59));then
+        ((sec=num%60))
+        ((num=num/60))
+        if((num>59));then
+            ((min=num%60))
+            ((num=num/60))
+            if((num>23));then
+                ((hour=num%24))
+                ((day=num/24))
+            else
+                ((hour=num))
+            fi || true
+        else
+            ((min=num))
+        fi || true
+    else
+        ((sec=num))
+    fi || true
+    echo -e "$day"d "$hour"h "$min"m "$sec"s"\n" >&2
+}
+
+# Convert GO map to BiNGO map
   function map2bingo(){
    cat \
    <(echo "(species="$species")(type=BiNGO)(curator=annobash)") \
    <(awk -F $'\t' '{gsub("GO:","",$2); print $1" = "$2}' "$1")
   }
-  
+
+# Do only BiNGO map conversion
   if [ ! -z ${bingo+x} ]
   then
    if [ -z ${species+x} ]
@@ -174,6 +204,7 @@ if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
    exit 0
   fi
 
+# Check required input
   if [ ! -z ${run+x} ] || [ ! -z ${egg+x} ]
   then
   if [ -z ${genome+x} ]
@@ -181,7 +212,7 @@ if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
    echo "Must designate genome file with -g | --genome" >&2
    exit 1
   fi
-  
+
   if [ -z ${gtff+x} ] && [ ! -z ${run+x} ]
   then
    echo "Must designate structural annotation file with -f | --gtff" >&2
@@ -195,11 +226,18 @@ if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
    exit 1
   fi
   
+  if [ ! -z ${egg+x} ] && [ -z ${species+x} ]
+  then
+   echo "Please specify a species with '-s | --species'" >&2
+   exit 1
+  fi
+
   if [ ! -z ${patho+x} ] && [ -z ${pwt+x} ]
   then
    pwt="gbk"
   fi
   
+# Convert GTF to GFF for Pathologic conversion
   function gtf2gff(){
    local tmp_gff=$(mktemp --tmpdir=$tmpdir annobash.XXXXXXXXXX)
    local input=$1
@@ -216,14 +254,22 @@ if ! command -v emapper2gbk &> /dev/null && [ ! -z ${egg+x} ]
    $3 !~ /gene|mRNA|transcript|CDS|exon/{print $0}')
   }
 
+# Run all Trinotate modules
 if [[ ${run[@]-x} =~ "0" ]]
 then
  run=(swissprot_blastp swissprot_blastx pfam signalp6 tmhmmv2 infernal EggnogMapper)
 fi
 
+if [ ! -z ${egg+x} ] && [[ $egg == "0" ]] && [ ! -z ${run+x} ] && [[ ! ${run[@]} =~ "EggnogMapper" ]]
+then
+ run+="EggnogMapper"
+fi
+
+# Download GO ontology
 wget --quiet -O $tmpdir"/go-basic.obo" http://purl.obolibrary.org/obo/go/go-basic.obo
 gobo=$tmpdir"/go-basic.obo"
- 
+
+# Remove previous run checks in Trinotate and move GO ontology
 if [ ! -z ${TRINOTATE_DATA_DIR+x} ] && [ ! -z ${run+x} ]
 then
  rm -f $TRINOTATE_DATA_DIR"/__chckpts/cp_trinotate_boilerplate_sqlite_to_"$Name".sqlite.ok"
@@ -231,6 +277,7 @@ then
  gobo=$TRINOTATE_DATA_DIR"/go-basic.obo"
 fi
 
+# Output directory
 if [ -z ${outdir+x} ]
 then
  outdir=$(pwd)"/"$Name"_annobash"
@@ -241,28 +288,20 @@ then
  mkdir --parents $outdir
 fi
 
-if [ ! -z ${egg+x} ] && [ -z ${species+x} ]
-then
- echo "Please specify a species with '-s | --species'" >&2
- exit 1
-fi
-
-if [ ! -z ${egg+x} ] && [[ $egg == "0" ]] && [ ! -z ${run+x} ] && [[ ! ${run[@]} =~ "EggnogMapper" ]]
-then
- run+="EggnogMapper"
-fi
-
+# Run requested Trinotate modules
 if [ ! -z ${run+x} ]
 then
 
 cd $tmpdir
 
+# Trinotate accepts only gff3 extensions
 if [[ ${gtff##*.} == "gff" ]]
 then
  cp --force $gtff $tmpdir"/"$(basename $gtff)"3"
  gtff=$tmpdir"/"$(basename $gtff)"3"
 fi
 
+# Setup Trinotate
 Trinotate --create \
 --db $tmpdir"/"$Name.sqlite \
 --use_diamond
@@ -274,6 +313,7 @@ Trinotate_GTF_or_GFF3_annot_prep.pl \
 
 cp --force $tmpdir"/"$Name".gene-to-trans-map" $outdir
 
+# Fix terrible Trinotate protein names
 if [ -f $tmpdir"/"$Name".proteins.fa" ]
 then
  sed -i -E 's/[.]pep / /g' $tmpdir"/"$Name".proteins.fa"
@@ -291,6 +331,7 @@ Trinotate --init \
 --transcript_fasta $tmpdir"/"$Name.transcripts.cdna.fa \
 --transdecoder_pep $tmpdir"/"$Name.proteins.fa
 
+# Run Trinotate
 Trinotate \
 --db $tmpdir"/"$Name.sqlite \
 --CPU $threads \
@@ -308,41 +349,39 @@ fi
 
 if [[ ${run[@]} =~ "swissprot_blastp" ]] || [[ ${run[@]} =~ "swissprot_blastx" ]]
 then
+ # Output Trinotate report
  Trinotate --report \
  --db $tmpdir"/"$Name.sqlite \
  > $outdir"/"$Name"_report.tsv"
 
- 
- cat $outdir"/"$Name"_report.tsv" | tee \
- >(cut --fields=1,26 |
-  tail +2 |
-  sed 's/ko://g' |
+# Output KEGG gene/transcript map
+ cut --fields=1,2,26 $outdir"/"$Name"_report.tsv" |
+  tail -n +2 |
+  sed -E 's/ko:(K[0-9]+)/\1/g' |
   grep -v '[.]$' |
-  sort --unique |
-  awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' > $outdir"/"$Name".gene.KEGGmap") |
+  tee -p >(cut --fields=1,3 | awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' | sort --unique > $outdir"/"$Name".gene.KEGGmap") |
+  cut --fields=2,3 | awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' | sort --unique > $outdir"/"$Name".transcript.KEGGmap"
+
+# Output GO gene map
  extract_GO_assignments_from_Trinotate_xls.pl \
-  --Trinotate_xls /dev/stdin \
+  --Trinotate_xls $outdir"/"$Name"_report.tsv" \
   -G \
   --include_ancestral_terms |
   awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
   > $outdir"/"$Name".gene.GOmap"
 
+# Output BiNGO gene map
  map2bingo $outdir"/"$Name".gene.GOmap" > $outdir"/"$Name".gene.BiNGO"
- 
- cat $outdir"/"$Name"_report.tsv" | tee \
- >(cut --fields=2,26 |
-  tail +2 |
-  sed 's/ko://g' |
-  grep -v '[.]$' |
-  sort --unique |
-  awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' > $outdir"/"$Name".transcript.KEGGmap") |
+
+# Output GO transcript map
  extract_GO_assignments_from_Trinotate_xls.pl \
-  --Trinotate_xls /dev/stdin \
+  --Trinotate_xls $outdir"/"$Name"_report.tsv" \
   -T \
   --include_ancestral_terms |
   awk -F $'\t' '{OFS="\t"}; {split($2, a, ","); for (i in a) print $1,a[i]}' \
   > $outdir"/"$Name".transcript.GOmap"
 
+# Output BiNGO transcript map
  map2bingo $outdir"/"$Name".transcript.GOmap" > $outdir"/"$Name".transcript.BiNGO"
   
  if [ -z ${species+x} ]
@@ -447,3 +486,5 @@ if [ ! -z $keep ]
 then
  mv --force $tmpdir $outdir
 fi
+
+echo -ne "\nannobash done: " >&2; show_time
